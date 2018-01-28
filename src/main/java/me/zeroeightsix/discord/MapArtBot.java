@@ -70,11 +70,15 @@ public class MapArtBot extends ListenerAdapter {
     private ArrayList<ReplaceGroup> replaceMap = new ArrayList<>();
 
     public static void main(String[] args) throws LoginException, InterruptedException {
+        if (args.length == 0) {
+            System.err.println("Discord token required as argument");
+            return;
+        }
+
         MapArtBot bot = new MapArtBot();
 
         JDABuilder builder = new JDABuilder(AccountType.BOT);
-        bot.jda = builder.setAutoReconnect(true).setToken("NDAyNTY1NTAwNTMxMzc2MTI4.DT6l3A.uBRojvRI-_JauxkE1_ZVANXDc6U").buildBlocking();
-
+        bot.jda = builder.setAutoReconnect(true).setToken(args[0]).buildBlocking();
         File tmp = new File("tmp");
         if (!tmp.isDirectory() || !tmp.exists()) tmp.mkdirs();
 
