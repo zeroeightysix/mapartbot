@@ -101,7 +101,7 @@ public class MapArtBot extends ListenerAdapter {
             }
         }
 
-        content.append("\nAll attachments downloaded, processing...");
+        content.append("\nAll attachments downloaded, processing and uploading. Please wait.");
 
         processSchematics(event, m, content, files);
     }
@@ -144,11 +144,12 @@ public class MapArtBot extends ListenerAdapter {
             }
         }
 
-        content.append("Uploading..");
         event.getMessage().getChannel().editMessageById(m.getId(), generate(content.toString(), false)).queue();
 
-        for (File file : toList)
+        for (File file : toList) {
             event.getMessage().getChannel().sendFile(file).queue();
+            file.delete();
+        }
     }
 
     private void processImage(MessageReceivedEvent event, Message m, StringBuilder builder, File file) {
@@ -156,9 +157,20 @@ public class MapArtBot extends ListenerAdapter {
             try {
                 Class converter = Class. forName("MapConverter");
                 converter.getDeclaredMethod("main", String[].class).invoke(null, new Object[] { new String[] { file.getAbsolutePath() } });
+
+                Message preview = event.getChannel().sendFile(new File("tmp/out/png/completeImage.png")).complete(true);
+
+                Files.list(Paths.get("tmp/out/png")).forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+
                 List<File> files = Files.list(Paths.get("tmp/out/schematic")).map(Path::toFile).collect(Collectors.toList());
                 if (files.size() > 9) {
-                    builder.append("\nYour image is quite large and generated " + files.size() + " schematics.\nWould you like to proceed? **(yes/no)**");
+                    builder.append("\nYour image is quite large and generated **" + files.size() + "** schematics.\nWould you like to proceed? **(yes/no)**");
                     event.getMessage().getChannel().editMessageById(m.getId(), generate(builder.toString(), true)).queue();
 
                     responseMap.put(event.getMember(), messageReceivedEvent -> {
@@ -166,16 +178,17 @@ public class MapArtBot extends ListenerAdapter {
                         if (s.equalsIgnoreCase("yes") || s.equalsIgnoreCase("y")) {
                             processSchematics(event, m, builder, files);
                         } else {
+                            files.forEach(File::delete);
                             m.delete().queue();
+                            preview.delete().queue();
                             messageReceivedEvent.getChannel().sendMessage(generate("Cancelled.", true)).queue();
                         }
                     });
-                    return;
                 } else {
                     processSchematics(event, m, builder, files);
+                    files.forEach(File::delete);
                 }
-                files.forEach(File::delete);
-            } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException | IOException e) {
+            } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException | IOException | RateLimitedException e) {
                 e.printStackTrace();
             }
         });
