@@ -3,6 +3,7 @@ package me.zeroeightsix.discord;
 import me.zeroeightsix.discord.groups.DefaultGroups;
 import me.zeroeightsix.discord.groups.ReplaceGroup;
 import net.dv8tion.jda.core.EmbedBuilder;
+import net.dv8tion.jda.core.entities.Member;
 import net.dv8tion.jda.core.entities.Message;
 import net.dv8tion.jda.core.entities.MessageEmbed;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
@@ -22,11 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class MapArtBot extends ListenerAdapter {
 
     private static final BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(16);
+    private static final HashMap<Member, Consumer<MessageReceivedEvent>> responseMap = new HashMap<>();
     private ArrayList<ReplaceGroup> replaceMap = new ArrayList<>();
 
     MapArtBot() {
@@ -50,6 +53,10 @@ public class MapArtBot extends ListenerAdapter {
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
         if (event.getMessage().getMember().equals(event.getGuild().getSelfMember())) return;
+
+        if (responseMap.containsKey(event.getMember())) {
+            responseMap.remove(event.getMember()).accept(event);
+        }
 
         String message = event.getMessage().getContentDisplay();
         if (processCommand(event, message)) return;
@@ -151,8 +158,19 @@ public class MapArtBot extends ListenerAdapter {
                 converter.getDeclaredMethod("main", String[].class).invoke(null, new Object[] { new String[] { file.getAbsolutePath() } });
                 List<File> files = Files.list(Paths.get("tmp/out/schematic")).map(Path::toFile).collect(Collectors.toList());
                 if (files.size() > 9) {
-                    builder.append("\nYour image is too large and generated over 9 schematics.");
+                    builder.append("\nYour image is quite large and generated " + files.size() + " schematics.\nWould you like to proceed? **(yes/no)**");
                     event.getMessage().getChannel().editMessageById(m.getId(), generate(builder.toString(), true)).queue();
+
+                    responseMap.put(event.getMember(), messageReceivedEvent -> {
+                        String s = messageReceivedEvent.getMessage().getContentDisplay();
+                        if (s.equalsIgnoreCase("yes") || s.equalsIgnoreCase("y")) {
+                            processSchematics(event, m, builder, files);
+                        } else {
+                            m.delete().queue();
+                            messageReceivedEvent.getChannel().sendMessage(generate("Cancelled.", true)).queue();
+                        }
+                    });
+                    return;
                 } else {
                     processSchematics(event, m, builder, files);
                 }
