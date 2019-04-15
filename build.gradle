@@ -1,6 +1,14 @@
-plugins {
-    id 'java'
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
+    }
 }
+
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
 
 version '1.1.0'
 group 'me.zeroeightsix'
@@ -14,4 +22,10 @@ dependencies {
     compile 'net.dv8tion:JDA:3.8.3_462'
     compile files("lib/JNBT_1.4.jar")
     compile files("lib/mapconverter_0.13.jar")
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": "me.zeroeightsix.discord.Main"
+    }
 }
